@@ -1,20 +1,20 @@
-# Gym CRM — SaaS Backend API
+# Gym CRM: SaaS Backend API
 
 A production-grade multi-tenant SaaS CRM backend built with FastAPI and PostgreSQL, designed for gym management. Each gym operates as a fully isolated tenant with its own staff, members, workout sessions, and progress tracking.
 
-> **Live on AWS** — containerized, deployed to ECS Fargate, RDS-backed, with a green CI/CD pipeline on every push to `main`.
+> **Live on AWS.** Containerized, deployed to ECS Fargate, RDS-backed, with a green CI/CD pipeline on every push to `main`.
 >
 > Interactive API docs (Swagger UI): `/docs` once running locally → [http://localhost:8000/docs](http://localhost:8000/docs)
 >
-> _Add a screenshot of the Swagger UI here once you grab one — drop it in `/docs-assets/swagger.png` and reference it._
+> _Add a screenshot of the Swagger UI here once you grab one. Drop it in `/docs-assets/swagger.png` and reference it._
 
 ---
 
 ## Motivation
 
-I'm a developer who ships full-stack apps end to end. My flagship product (TrainerOS, aftrainer.app) is a React PWA with a Supabase backend — that taught me a lot about the BaaS world, but I wanted to prove I could build a backend the hard way: from the database schema up, with my own layers, my own auth, my own tests, and my own infrastructure.
+I'm a developer who ships full-stack apps end to end. My flagship product (TrainerOS, aftrainer.app) is a React PWA with a Supabase backend. That taught me a lot about the BaaS world, but I wanted to prove I could build a backend the hard way: from the database schema up, with my own layers, my own auth, my own tests, and my own infrastructure.
 
-So I built this. A real multi-tenant CRM for gym owners — not a tutorial clone, not a localhost demo. Every layer is hand-built and tested: SQLAlchemy models → repository → service → FastAPI routers, with JWT + role-based access for `manager` and `trainer` accounts. It's containerized with Docker, runs on AWS Fargate behind RDS, ships secrets through AWS Secrets Manager, and redeploys automatically when CI goes green.
+So I built this. A real multi-tenant CRM for gym owners, not a tutorial clone and not a localhost demo. Every layer is hand-built and tested: SQLAlchemy models → repository → service → FastAPI routers, with JWT + role-based access for `manager` and `trainer` accounts. It's containerized with Docker, runs on AWS Fargate behind RDS, ships secrets through AWS Secrets Manager, and redeploys automatically when CI goes green.
 
 The goal was simple: a backend I'd be proud to put in front of an engineer who actually reads the code.
 
@@ -22,7 +22,7 @@ The goal was simple: a backend I'd be proud to put in front of an engineer who a
 
 ## Quick Start
 
-The fastest path is Docker Compose — one command, full stack (API + PostgreSQL + Redis):
+The fastest path is Docker Compose. One command, full stack (API + PostgreSQL + Redis):
 
 ```bash
 git clone https://github.com/Adrianbrou/Saas-CRM-Backend-gym-trainer-
@@ -116,9 +116,9 @@ Workout
 app/
 ├── app/
 │   ├── main.py
-│   ├── api/              # FastAPI routers — one file per resource
-│   ├── services/         # Business logic — duplicate checks, not-found errors
-│   ├── repository/       # Database queries — no business logic
+│   ├── api/              # FastAPI routers (one file per resource)
+│   ├── services/         # Business logic: duplicate checks, not-found errors
+│   ├── repository/       # Database queries, no business logic
 │   ├── models/           # SQLAlchemy ORM models
 │   ├── schemas/          # Pydantic schemas (Create, Update, Response)
 │   ├── database/         # Engine, session, base
@@ -133,15 +133,15 @@ app/
 
 ### Features
 
-- **Multi-tenant architecture** — every query is scoped to `gym_id`, no data leaks between tenants
-- **Role-based access control** — `manager` mutates, `trainer` operates, enforced on every protected route
-- **JWT authentication** — stateless, OAuth2 password flow, Swagger "Authorize" button works out of the box
-- **Redis caching** — `get_by_id` cached with 5min TTL, invalidated on update/delete
-- **Background email notifications** — welcome email on member registration, session notification on attendance
-- **Paginated list endpoints** — every list route supports `skip` / `limit`
-- **Health check endpoint** — `GET /health` returns `200 {"status": "ok"}` for uptime monitoring
-- **52 automated tests** — unit per service, integration per API endpoint, all green in CI
-- **Seed migration** — 9 body parts seeded via Alembic on first deploy
+- **Multi-tenant architecture:** every query is scoped to `gym_id`, no data leaks between tenants
+- **Role-based access control:** `manager` mutates, `trainer` operates, enforced on every protected route
+- **JWT authentication:** stateless, OAuth2 password flow, Swagger "Authorize" button works out of the box
+- **Redis caching:** `get_by_id` cached with 5min TTL, invalidated on update/delete
+- **Background email notifications:** welcome email on member registration, session notification on attendance
+- **Paginated list endpoints:** every list route supports `skip` / `limit`
+- **Health check endpoint:** `GET /health` returns `200 {"status": "ok"}` for uptime monitoring
+- **52 automated tests:** unit per service, integration per API endpoint, all green in CI
+- **Seed migration:** 9 body parts seeded via Alembic on first deploy
 
 ### API Endpoints
 
@@ -226,11 +226,11 @@ app/
 
 Deployed using:
 
-- **ECR** — Docker image registry
-- **ECS Fargate** — serverless container runtime
-- **RDS** — managed PostgreSQL
-- **Secrets Manager** — secure environment variables
-- **GitHub Actions** — CI/CD pipeline (test → deploy on push to `main`)
+- **ECR:** Docker image registry
+- **ECS Fargate:** serverless container runtime
+- **RDS:** managed PostgreSQL
+- **Secrets Manager:** secure environment variables
+- **GitHub Actions:** CI/CD pipeline (test → deploy on push to `main`)
 
 Pipeline: push to `main` → 52 tests run → if green → Docker image built and pushed to ECR → ECS service redeployed automatically.
 
@@ -238,18 +238,18 @@ Pipeline: push to `main` → 52 tests run → if green → Docker image built an
 
 ## Roadmap
 
-- [x] Phase 1 — Database models + migrations
-- [x] Phase 2 — Repository layer
-- [x] Phase 3 — Pydantic schemas
-- [x] Phase 4 — Service layer
-- [x] Phase 5 — API endpoints
-- [x] Phase 6 — JWT authentication + RBAC
-- [x] Phase 7 — Background tasks + email notifications
-- [x] Phase 8 — Redis caching + performance
-- [x] Phase 9 — Testing (52 tests — unit + integration)
-- [x] Phase 10 — Docker + AWS deployment + CI/CD
-- [ ] Phase 11 — Load balancer + custom domain + HTTPS
-- [ ] Phase 12 — React frontend
+- [x] Phase 1: Database models + migrations
+- [x] Phase 2: Repository layer
+- [x] Phase 3: Pydantic schemas
+- [x] Phase 4: Service layer
+- [x] Phase 5: API endpoints
+- [x] Phase 6: JWT authentication + RBAC
+- [x] Phase 7: Background tasks + email notifications
+- [x] Phase 8: Redis caching + performance
+- [x] Phase 9: Testing (52 tests, unit + integration)
+- [x] Phase 10: Docker + AWS deployment + CI/CD
+- [ ] Phase 11: Load balancer + custom domain + HTTPS
+- [ ] Phase 12: React frontend
 
 ---
 
