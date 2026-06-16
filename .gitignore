@@ -3,6 +3,7 @@
 # =============================================================
 .env
 .env.*
+!.env.example
 
 # =============================================================
 # PYTHON — compiled files and cache (auto-generated, not needed)
