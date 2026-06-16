@@ -155,7 +155,7 @@
   - [x] TTL: 300 seconds (5 min)
   - [x] REDIS_HOST: cache injected via docker-compose, localhost default for local dev
   - [x] Tests require Redis running: docker-compose up cache -d
-- [ ] AWS Deployment — IN PROGRESS
+- [x] AWS Deployment — COMPLETE
   - [x] AWS account created
   - [x] IAM user adrian_coding created — AdministratorAccess policy
   - [x] Access keys created + AWS CLI configured (us-east-1)
@@ -164,10 +164,12 @@
   - [x] RDS PostgreSQL created: crm-db.csveqsqwg4s4.us-east-1.rds.amazonaws.com
   - [x] Secrets Manager: crm-backend/prod (all .env variables stored)
   - [x] ECS cluster created: crm-cluster (Fargate)
-  - [x] ECS task definition created: crm-backend-task (port 8000)
-  - [x] ECS service created: crm-backend-service (desired tasks: 1, public IP on)
-  - [ ] Add env vars to task definition (pull from Secrets Manager)
-  - [ ] Run Alembic migrations on RDS
-  - [ ] Test live endpoint
-  - [ ] Wire GitHub Actions CI/CD (auto-deploy on green)
-- [ ] Full CI/CD pipeline (deploy on green)
+  - [x] ECS task definition: crm-backend-task rev 2 (port 8000 + env vars from Secrets Manager)
+  - [x] ECS service: crm-backend-service (running, public IP on)
+  - [x] Security group: port 8000 + 5432 open
+  - [x] ecsTaskExecutionRole: SecretsManagerReadWrite policy attached
+  - [x] Alembic migrations run on RDS
+  - [x] Live endpoint tested: /health returns 200
+  - [x] GitHub Actions CI/CD: push → test → deploy to ECS on main
+  - [x] Action versions upgraded: checkout@v4, setup-python@v5, configure-aws-credentials@v4, ecr-login@v2
+- [x] Full CI/CD pipeline — COMPLETE

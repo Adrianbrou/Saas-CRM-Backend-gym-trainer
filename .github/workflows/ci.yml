@@ -45,7 +45,9 @@ jobs:
     deploy:
         runs-on: ubuntu-latest
         needs: test
-        if: github.ref == 'refs/heads/main'
+        # AWS infrastructure was decommissioned to stop billing, so deployment is paused.
+        # To re-enable, restore:  if: github.ref == 'refs/heads/main'
+        if: false
 
         steps:
           - uses: actions/checkout@v4
