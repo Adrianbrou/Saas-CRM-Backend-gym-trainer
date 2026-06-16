@@ -17,7 +17,7 @@ Error handling:
     ValueError from service layer → 404 Not Found (gym does not exist)
 """
 
-from fastapi import Depends, APIRouter, HTTPException
+from fastapi import Depends, APIRouter
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.schemas.gym import GymCreate, GymResponse, GymUpdate
@@ -52,10 +52,7 @@ def create_gym(data: GymCreate, db: Session = Depends(get_db)):
     Raises:
         HTTPException 400: If a gym with the same name and location already exists.
     """
-    try:
-        return gym_service.register_gym(db, data)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return gym_service.register_gym(db, data)
 
 
 @router.get(
@@ -98,10 +95,7 @@ def get_gym_id(gym_id: int, _=Depends(get_current_user), db: Session = Depends(g
     Raises:
         HTTPException 404: If no gym with that id exists.
     """
-    try:
-        return gym_service.get_gym(db, gym_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return gym_service.get_gym(db, gym_id)
 
 
 @router.patch(
@@ -127,10 +121,7 @@ def update_gym(data: GymUpdate, gym_id: int, _=Depends(require_manager), db: Ses
     Raises:
         HTTPException 404: If no gym with that id exists.
     """
-    try:
-        return gym_service.update_gym(db, gym_id, data)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return gym_service.update_gym(db, gym_id, data)
 
 
 @router.delete(
@@ -155,7 +146,4 @@ def delete(gym_id: int, _=Depends(require_manager), db: Session = Depends(get_db
     Raises:
         HTTPException 404: If no gym with that id exists.
     """
-    try:
-        return gym_service.delete_gym(db, gym_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return gym_service.delete_gym(db, gym_id)

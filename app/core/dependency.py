@@ -46,17 +46,17 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     Raises:
         HTTPException 401: If the token is invalid, expired, or the staff does not exist.
     """
-    # Step 1: Decode and validate the JWT — raises JWTError if expired or tampered
+    # Step 1: Decode the JWT and read the subject claim. Every malformed-token shape -
+    # bad signature, expired (JWTError), or a missing / non-numeric "sub"
+    # (KeyError / ValueError / TypeError) - resolves to a single 401, never a 500.
     try:
         payload = security.decode_access_token(token)
-    except JWTError:
+        staff_id = int(payload["sub"])
+    except (JWTError, KeyError, ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token is invalid or has expired",
         )
-
-    # Step 2: Extract staff ID from the "sub" claim (stored as string per JWT standard)
-    staff_id = int(payload["sub"])
 
     # Step 3: Look up the staff in the DB — handles the case where account was deleted
     staff = staff_repository.get_by_id(db, staff_id)

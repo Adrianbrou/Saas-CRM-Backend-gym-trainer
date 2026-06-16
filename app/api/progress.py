@@ -20,7 +20,7 @@ Error handling:
     ValueError from service layer → 400 Bad Request (not found)
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.services import progress_service
@@ -52,10 +52,7 @@ def log_progress(data: ProgressCreate, _=Depends(get_current_user), db: Session 
     Returns:
         ProgressResponse: The newly created progress record including id and logged_at.
     """
-    try:
-        return progress_service.log_progress(db, data)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return progress_service.log_progress(db, data)
 
 
 @router.get(
@@ -160,10 +157,7 @@ def get_progress(progress_id: int, _=Depends(get_current_user), db: Session = De
     Raises:
         HTTPException 400: If no record with that id exists.
     """
-    try:
-        return progress_service.get_progress(db, progress_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return progress_service.get_progress(db, progress_id)
 
 
 @router.patch(
@@ -190,10 +184,7 @@ def update_progress(progress_id: int, data: ProgressUpdate, _=Depends(get_curren
     Raises:
         HTTPException 400: If no record with that id exists.
     """
-    try:
-        return progress_service.update_progress(db, progress_id, data)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return progress_service.update_progress(db, progress_id, data)
 
 
 @router.delete(
@@ -215,8 +206,5 @@ def delete_progress(progress_id: int, _=Depends(get_current_user), db: Session =
     Raises:
         HTTPException 400: If no record with that id exists.
     """
-    try:
-        progress_service.delete_progress(db, progress_id)
-        return True
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    progress_service.delete_progress(db, progress_id)
+    return True

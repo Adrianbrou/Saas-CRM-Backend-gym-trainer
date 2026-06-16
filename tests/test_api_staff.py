@@ -54,7 +54,7 @@ def test_duplicate_staff(auth_client):
         "gym_id": 1,
         "password": "pass123"
     })
-    assert response.status_code == 400
+    assert response.status_code == 409
 
 
 def test_update_staff(auth_client):

@@ -44,7 +44,7 @@ def test_duplicate_member(auth_client):
         "phone": "123456789",
         "gym_id": 1
     })
-    assert response.status_code == 400
+    assert response.status_code == 409
 
 
 def test_update_member(auth_client):

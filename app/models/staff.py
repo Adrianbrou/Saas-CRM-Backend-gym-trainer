@@ -19,9 +19,11 @@ class Staff(Base):
 
     id = Column(Integer, primary_key=True, nullable=False, index=True)
     role = Column(Enum(RoleEnum), nullable=False)
-    name = Column(String, nullable=False, index=True, unique=True)
+    name = Column(String, nullable=False, index=True)
+    # Staff authenticate by email globally (see auth.login), so staff email stays
+    # globally unique to keep login unambiguous. Name and phone are not unique.
     email = Column(String, nullable=False, index=True, unique=True)
-    phone = Column(String, nullable=False, index=True, unique=True)
+    phone = Column(String, nullable=False, index=True)
     hashed_password = Column(String, nullable=True)
 
     # foreign key from the gym

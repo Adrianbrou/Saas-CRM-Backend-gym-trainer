@@ -12,7 +12,7 @@ from app.schemas.staff import StaffCreate, StaffUpdate, StaffResponse
 from app.core import security
 from sqlalchemy.orm import Session
 from app.core import cache
-import json
+from app.core.exceptions import NotFoundError, DuplicateError
 
 
 def register_staff(db: Session, data: StaffCreate) -> Staff:
@@ -28,9 +28,10 @@ def register_staff(db: Session, data: StaffCreate) -> Staff:
     Returns:
         Staff: The newly created staff member with database-generated id and timestamps.
     """
-    existing = staff_repository.get_by_email(db, data.email, data.gym_id)
+    # Staff email is globally unique (they log in by it), so check globally, not per gym.
+    existing = staff_repository.get_by_email_global(db, data.email)
     if existing:
-        raise ValueError("Staff member already exists in this gym")
+        raise DuplicateError("A staff member with this email already exists")
     data_dict = data.model_dump()
     data_dict["hashed_password"] = security.hash_password(
         data_dict.pop("password"))
@@ -54,7 +55,7 @@ def update_staff(db: Session, staff_id: int, data: StaffUpdate) -> Staff:
     """
     existing = staff_repository.get_by_id(db, staff_id)
     if not existing:
-        raise ValueError("Staff not found")
+        raise NotFoundError("Staff not found")
     updates = data.model_dump(exclude_unset=True)
     result = staff_repository.update(db, staff_id, updates)
     cache.redis_client.delete(f"staff:{staff_id}")
@@ -62,7 +63,7 @@ def update_staff(db: Session, staff_id: int, data: StaffUpdate) -> Staff:
     return result
 
 
-def get_staff(db: Session, staff_id: int) -> Staff:
+def get_staff(db: Session, staff_id: int) -> StaffResponse:
     """Retrieve a staff member by id after verifying they exist.
 
     Args:
@@ -75,15 +76,16 @@ def get_staff(db: Session, staff_id: int) -> Staff:
     Returns:
         Staff: The matching staff member object.
     """
+    # Return a validated StaffResponse on both the cache-hit and cache-miss paths.
     cached = cache.redis_client.get(f"staff:{staff_id}")
     if cached and isinstance(cached, str):
-        return json.loads(cached)
+        return StaffResponse.model_validate_json(cached)
     existing = staff_repository.get_by_id(db, staff_id)
     if not existing:
-        raise ValueError("Staff not found")
-    cache.redis_client.set(f"staff:{staff_id}", json.dumps(
-        StaffResponse.model_validate(existing).model_dump(mode="json")), ex=300)
-    return existing
+        raise NotFoundError("Staff not found")
+    response = StaffResponse.model_validate(existing)
+    cache.redis_client.set(f"staff:{staff_id}", response.model_dump_json(), ex=300)
+    return response
 
 
 def get_all(db: Session, gym_id: int, skip: int = 0, limit: int = 20) -> list[Staff]:
@@ -116,7 +118,7 @@ def delete_staff(db: Session, staff_id: int) -> bool:
     """
     existing = staff_repository.get_by_id(db, staff_id)
     if not existing:
-        raise ValueError("Staff not found")
+        raise NotFoundError("Staff not found")
     staff_repository.delete(db, staff_id)
     cache.redis_client.delete(f"staff:{staff_id}")
     return True

@@ -17,7 +17,7 @@ Error handling:
     ValueError from service layer → 400 Bad Request (duplicate name or not found)
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.services import workout_service
@@ -51,10 +51,7 @@ def create_workout(data: WorkoutCreate, _=Depends(require_manager), db: Session 
     Raises:
         HTTPException 400: If a workout with that name already exists.
     """
-    try:
-        return workout_service.create_workout(db, data)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return workout_service.create_workout(db, data)
 
 
 @router.get(
@@ -96,10 +93,7 @@ def get_workout(workout_id: int, _=Depends(get_current_user), db: Session = Depe
     Raises:
         HTTPException 400: If no workout with that id exists.
     """
-    try:
-        return workout_service.get_workout(db, workout_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return workout_service.get_workout(db, workout_id)
 
 
 @router.patch(
@@ -122,10 +116,7 @@ def update_workout(workout_id: int, data: WorkoutUpdate, _=Depends(require_manag
     Raises:
         HTTPException 400: If no workout with that id exists.
     """
-    try:
-        return workout_service.update_workout(db, workout_id, data)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return workout_service.update_workout(db, workout_id, data)
 
 
 @router.delete(
@@ -147,7 +138,4 @@ def delete_workout(workout_id: int, _=Depends(require_manager), db: Session = De
     Raises:
         HTTPException 400: If no workout with that id exists.
     """
-    try:
-        return workout_service.delete_workout(db, workout_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return workout_service.delete_workout(db, workout_id)

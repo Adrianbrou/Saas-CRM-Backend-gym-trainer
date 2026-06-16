@@ -13,6 +13,7 @@ Configuration (required in .env):
     MAIL_PASSWORD  — SMTP password
 """
 from datetime import datetime
+import logging
 import smtplib
 import os
 from email.mime.text import MIMEText
@@ -26,6 +27,8 @@ MAIL_HOST = os.getenv("MAIL_HOST", "")
 MAIL_PORT = int(os.getenv("MAIL_PORT", "2525"))
 MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
 MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+
+logger = logging.getLogger(__name__)
 
 
 def send_welcome_email(to_email: str, member_name: str) -> None:
@@ -42,8 +45,10 @@ def send_welcome_email(to_email: str, member_name: str) -> None:
     Returns:
         None
 
-    Raises:
-        smtplib.SMTPException: If the SMTP connection or authentication fails.
+    Note:
+        SMTP failures are logged and swallowed. Email is best-effort and never
+        propagates out of this background task, so a dead mail server cannot fail
+        the request that scheduled it.
     """
 
     message = MIMEMultipart()
@@ -60,7 +65,9 @@ def send_welcome_email(to_email: str, member_name: str) -> None:
             server.login(MAIL_USERNAME, MAIL_PASSWORD)
             server.sendmail(message["From"], to_email, message.as_string())
     except Exception:
-        pass  # Email failures are non-critical — never crash the app
+        # Email is best-effort: log it so the failure is observable, but never crash
+        # the background task (and therefore never affect the original request).
+        logger.warning("email send failed for %s", to_email, exc_info=True)
 
 
 def send_session_notification(to_email: str, trainer: str, member_name: str, gym_name: str, schedule_at: datetime) -> None:
@@ -79,8 +86,10 @@ def send_session_notification(to_email: str, trainer: str, member_name: str, gym
     Returns:
         None
 
-    Raises:
-        smtplib.SMTPException: If the SMTP connection or authentication fails.
+    Note:
+        SMTP failures are logged and swallowed. Email is best-effort and never
+        propagates out of this background task, so a dead mail server cannot fail
+        the request that scheduled it.
     """
     date_str = schedule_at.strftime("%B %d, %Y")
     time_str = schedule_at.strftime("%H:%M")
@@ -103,4 +112,6 @@ def send_session_notification(to_email: str, trainer: str, member_name: str, gym
             server.login(MAIL_USERNAME, MAIL_PASSWORD)
             server.sendmail(message["From"], to_email, message.as_string())
     except Exception:
-        pass  # Email failures are non-critical — never crash the app
+        # Email is best-effort: log it so the failure is observable, but never crash
+        # the background task (and therefore never affect the original request).
+        logger.warning("email send failed for %s", to_email, exc_info=True)

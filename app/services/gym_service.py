@@ -18,7 +18,7 @@ from app.models.gym import Gym
 from app.schemas.gym import GymCreate, GymUpdate, GymResponse
 from sqlalchemy.orm import Session
 from app.core import cache
-import json
+from app.core.exceptions import NotFoundError, DuplicateError
 
 
 def register_gym(db: Session, data: GymCreate) -> Gym:
@@ -53,7 +53,7 @@ def register_gym(db: Session, data: GymCreate) -> Gym:
     existing = gym_repository.get_by_name_location(
         db, data.name, data.location)
     if existing:
-        raise ValueError("Gym already existing")
+        raise DuplicateError("Gym already exists")
 
     # Step 2: Build the SQLAlchemy model object from the Pydantic schema
     # model_dump() converts the Pydantic schema to a dict, and ** unpacks it into keyword arguments.
@@ -95,7 +95,7 @@ def update_gym(db: Session, gym_id: int, data: GymUpdate) -> Gym:
     # Step 1: Business rule — gym must exist before updating
     existing = gym_repository.get_by_id(db, gym_id)
     if not existing:
-        raise ValueError("Gym not found")
+        raise NotFoundError("Gym not found")
 
     # Step 2: Convert only the fields the client sent (skip unset None fields)
     # exclude_unset=True means "only include fields the client actually sent, skip the None ones".
@@ -108,7 +108,7 @@ def update_gym(db: Session, gym_id: int, data: GymUpdate) -> Gym:
     return result
 
 
-def get_gym(db: Session, gym_id: int) -> Gym:
+def get_gym(db: Session, gym_id: int) -> GymResponse:
     """this function is the retrieve the gym information (id) from the db , the service layer check if this gym exist
         if yes authorize the retrieval, if not raise a value Error
     Args:
@@ -122,20 +122,18 @@ def get_gym(db: Session, gym_id: int) -> Gym:
         Gym: if existing return the gym info through it's id
     """
 
-    # check cache
+    # Return a validated GymResponse on both the cache-hit and cache-miss paths.
     cached = cache.redis_client.get(f"gym:{gym_id}")
     if cached and isinstance(cached, str):
-        return json.loads(cached)
+        return GymResponse.model_validate_json(cached)
 
-    # if not cache
     existing = gym_repository.get_by_id(db, gym_id)
     if not existing:
-        raise ValueError("Gym not found")
-    # save temporarly to cache
-    cache.redis_client.set(f"gym:{gym_id}", json.dumps(
-        GymResponse.model_validate(existing).model_dump(mode="json")), ex=300)
+        raise NotFoundError("Gym not found")
 
-    return existing
+    response = GymResponse.model_validate(existing)
+    cache.redis_client.set(f"gym:{gym_id}", response.model_dump_json(), ex=300)
+    return response
 
 
 def get_all(db: Session, skip: int = 0, limit: int = 20) -> list[Gym]:
@@ -167,7 +165,7 @@ def delete_gym(db: Session, gym_id: int) -> bool:
     """
     existing = gym_repository.get_by_id(db, gym_id)
     if not existing:
-        raise ValueError("Gym not found")
+        raise NotFoundError("Gym not found")
     gym_repository.delete(db, gym_id)
     cache.redis_client.delete(f"gym:{gym_id}")
 

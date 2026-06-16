@@ -17,6 +17,7 @@ FLOW REMINDER:
 from app.models.workout_session import WorkoutSession, Attendance
 from app.repository import workout_session_repository, staff_repository, member_repository
 from app.schemas.workout_session import WorkoutSessionCreate, AttendanceCreate
+from app.core.exceptions import NotFoundError, BusinessRuleError
 from sqlalchemy.orm import Session
 
 
@@ -40,12 +41,12 @@ def create_session(db: Session, data: WorkoutSessionCreate) -> WorkoutSession:
     # Step 1: Check trainer exists
     trainer = staff_repository.get_by_id(db, data.staff_id)
     if not trainer:
-        raise ValueError("Trainer not found")
+        raise BusinessRuleError("Trainer not found")
 
     # Step 2: Check trainer belongs to this gym
     # A trainer from Gym A cannot lead a session at Gym B
     if trainer.gym_id != data.gym_id:
-        raise ValueError("Trainer does not belong to this gym")
+        raise BusinessRuleError("Trainer does not belong to this gym")
 
     # Step 3: Build WorkoutSession object and save — same pattern as register_gym
     workout_session = WorkoutSession(**data.model_dump())
@@ -88,12 +89,12 @@ def add_member_to_session(db: Session, data: AttendanceCreate) -> Attendance:
     # Step 1: Check the session exists
     session = workout_session_repository.get_by_id(db, data.workout_session_id)
     if not session:
-        raise ValueError("Session not found")
+        raise NotFoundError("Session not found")
 
     # Step 2: Check the member exists
     member = member_repository.get_by_id(db, data.member_id)
     if not member:
-        raise ValueError("Member not found")
+        raise NotFoundError("Member not found")
 
     # Step 3: Build Attendance object and save it
     attendance = Attendance(**data.model_dump())
@@ -117,7 +118,7 @@ def remove_member_from_session(db: Session, session_id: int, member_id: int) -> 
     # Step 1: Check the session exists
     session = workout_session_repository.get_by_id(db, session_id)
     if not session:
-        raise ValueError("Session not found")
+        raise NotFoundError("Session not found")
 
     # Step 2: Delegate attendance removal to the repository
     return workout_session_repository.remove_attendance(db, session_id, member_id)

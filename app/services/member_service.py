@@ -11,7 +11,7 @@ from app.repository import member_repository
 from app.schemas.member import MemberCreate, MemberUpdate, MemberResponse
 from sqlalchemy.orm import Session
 from app.core import cache
-import json
+from app.core.exceptions import NotFoundError, DuplicateError
 
 
 def register_member(db: Session, data: MemberCreate) -> Member:
@@ -29,7 +29,7 @@ def register_member(db: Session, data: MemberCreate) -> Member:
     """
     existing = member_repository.get_by_email(db, data.email, data.gym_id)
     if existing:
-        raise ValueError("Member already existing")
+        raise DuplicateError("Member already exists")
     member = Member(**data.model_dump())
     return member_repository.create(db, member)
 
@@ -50,7 +50,7 @@ def update_member(db: Session, member_id: int, data: MemberUpdate) -> Member:
     """
     existing = member_repository.get_by_id(db, member_id)
     if not existing:
-        raise ValueError("Member not found")
+        raise NotFoundError("Member not found")
     updates = data.model_dump(exclude_unset=True)
     result = member_repository.update(db, member_id, updates)
     cache.redis_client.delete(f"member:{member_id}")
@@ -72,7 +72,7 @@ def get_all(db: Session, gym_id: int, skip: int = 0, limit: int = 20) -> list[Me
     return member_repository.get_all(db, gym_id, skip=skip, limit=limit)
 
 
-def get_member(db: Session, member_id: int) -> Member:
+def get_member(db: Session, member_id: int) -> MemberResponse:
     """Retrieve a member by id after verifying the member exists.
 
     Args:
@@ -85,19 +85,19 @@ def get_member(db: Session, member_id: int) -> Member:
     Returns:
         Member: The matching member object.
     """
-    # check if there is an existing cache
+    # Return a validated MemberResponse on BOTH the cache-hit and cache-miss paths,
+    # so this function has one return type regardless of whether Redis was warm.
     cached = cache.redis_client.get(f"member:{member_id}")
     if cached and isinstance(cached, str):
-        return json.loads(cached)
+        return MemberResponse.model_validate_json(cached)
 
     existing = member_repository.get_by_id(db, member_id)
-
     if not existing:
-        raise ValueError("Member not found")
-    # save temporarly to cache
-    cache.redis_client.set(f"member:{member_id}", json.dumps(
-        MemberResponse.model_validate(existing).model_dump(mode="json")), ex=300)
-    return existing
+        raise NotFoundError("Member not found")
+
+    response = MemberResponse.model_validate(existing)
+    cache.redis_client.set(f"member:{member_id}", response.model_dump_json(), ex=300)
+    return response
 
 
 def delete_member(db: Session, member_id: int) -> bool:
@@ -115,7 +115,7 @@ def delete_member(db: Session, member_id: int) -> bool:
     """
     existing = member_repository.get_by_id(db, member_id)
     if not existing:
-        raise ValueError("Member not found")
+        raise NotFoundError("Member not found")
     member_repository.delete(db, member_id)
     cache.redis_client.delete(f"member:{member_id}")
     return True

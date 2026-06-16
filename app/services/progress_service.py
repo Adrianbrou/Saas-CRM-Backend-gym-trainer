@@ -3,7 +3,7 @@ from app.repository import progress_repository
 from app.models.progress import Progress
 from app.schemas.progress import ProgressCreate, ProgressUpdate, ProgressResponse
 from app.core import cache
-import json
+from app.core.exceptions import NotFoundError
 
 
 def log_progress(db: Session, data: ProgressCreate) -> Progress:
@@ -20,7 +20,7 @@ def log_progress(db: Session, data: ProgressCreate) -> Progress:
     return progress_repository.create(db, progress)
 
 
-def get_progress(db: Session, progress_id: int) -> Progress:
+def get_progress(db: Session, progress_id: int) -> ProgressResponse:
     """Fetch a single progress record by ID.
 
     Args:
@@ -33,17 +33,17 @@ def get_progress(db: Session, progress_id: int) -> Progress:
     Raises:
         ValueError: If no record exists with the given ID.
     """
-    # check the cache
+    # Return a validated ProgressResponse on both the cache-hit and cache-miss paths.
     cached = cache.redis_client.get(f"progress:{progress_id}")
     if cached and isinstance(cached, str):
-        return json.loads(cached)
+        return ProgressResponse.model_validate_json(cached)
 
     progress = progress_repository.get_by_id(db, progress_id)
     if not progress:
-        raise ValueError(f"Progress record {progress_id} not found.")
-    cache.redis_client.set(f"progress:{progress_id}", json.dumps(
-        ProgressResponse.model_validate(progress).model_dump(mode="json")), ex=300)
-    return progress
+        raise NotFoundError(f"Progress record {progress_id} not found.")
+    response = ProgressResponse.model_validate(progress)
+    cache.redis_client.set(f"progress:{progress_id}", response.model_dump_json(), ex=300)
+    return response
 
 
 def get_all(db: Session, skip: int = 0, limit: int = 20) -> list[Progress]:
@@ -76,7 +76,7 @@ def update_progress(db: Session, progress_id: int, data: ProgressUpdate) -> Prog
     """
     progress = progress_repository.get_by_id(db, progress_id)
     if not progress:
-        raise ValueError(f"Progress record {progress_id} not found.")
+        raise NotFoundError(f"Progress record {progress_id} not found.")
     updates = data.model_dump(exclude_unset=True)
     result = progress_repository.update(db, progress_id, updates)
     cache.redis_client.delete(f"progress:{progress_id}")
@@ -95,7 +95,7 @@ def delete_progress(db: Session, progress_id: int) -> None:
     """
     deleted = progress_repository.delete(db, progress_id)
     if not deleted:
-        raise ValueError(f"Progress record {progress_id} not found.")
+        raise NotFoundError(f"Progress record {progress_id} not found.")
     cache.redis_client.delete(f"progress:{progress_id}")
 
 

@@ -23,6 +23,7 @@ from app.database.session import get_db
 from app.services import member_service
 from app.schemas.member import MemberCreate, MemberResponse, MemberUpdate
 from app.core.dependency import get_current_user, require_manager
+from app.models.staff import Staff
 from fastapi import BackgroundTasks
 from app.core.email import send_welcome_email
 import logging
@@ -44,7 +45,7 @@ router = APIRouter(prefix="/members", tags=["members"])
         "but one gym cannot have two members with the same email."
     ), status_code=201,
 )
-def create_member(background_tasks: BackgroundTasks, data: MemberCreate, _=Depends(require_manager), db: Session = Depends(get_db)):
+def create_member(background_tasks: BackgroundTasks, data: MemberCreate, current_user: Staff = Depends(require_manager), db: Session = Depends(get_db)):
     """Register a new gym member.
 
     Args:
@@ -58,16 +59,17 @@ def create_member(background_tasks: BackgroundTasks, data: MemberCreate, _=Depen
     Raises:
         HTTPException 400: If a member with that email already exists in the gym.
     """
-    try:
-        member = member_service.register_member(db, data)
-        logger.info("Member registered: %s (gym_id=%s)",
-                    data.email, data.gym_id)
+    # Tenant isolation: a manager may only create members inside their OWN gym.
+    # gym_id comes from the request body, so we check it against the gym on the JWT-
+    # authenticated staff. Without this, an authenticated manager could create members
+    # in any gym (horizontal privilege escalation / IDOR).
+    if data.gym_id != current_user.gym_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own gym")
 
-        background_tasks.add_task(
-            send_welcome_email, data.email, data.name)
-        return member
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    member = member_service.register_member(db, data)
+    logger.info("Member registered: %s (gym_id=%s)", data.email, data.gym_id)
+    background_tasks.add_task(send_welcome_email, data.email, data.name)
+    return member
 
 
 @router.get(
@@ -110,10 +112,7 @@ def get_member(member_id: int, _=Depends(get_current_user), db: Session = Depend
     Raises:
         HTTPException 400: If no member with that id exists.
     """
-    try:
-        return member_service.get_member(db, member_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return member_service.get_member(db, member_id)
 
 
 @router.patch(
@@ -139,10 +138,7 @@ def update_member(member_id: int, data: MemberUpdate, _=Depends(require_manager)
     Raises:
         HTTPException 400: If no member with that id exists.
     """
-    try:
-        return member_service.update_member(db, member_id, data)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return member_service.update_member(db, member_id, data)
 
 
 @router.delete(
@@ -164,7 +160,4 @@ def delete_member(member_id: int, _=Depends(require_manager), db: Session = Depe
     Raises:
         HTTPException 400: If no member with that id exists.
     """
-    try:
-        return member_service.delete_member(db, member_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return member_service.delete_member(db, member_id)

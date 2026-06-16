@@ -22,6 +22,7 @@ from app.database.session import get_db
 from app.services import staff_service
 from app.schemas.staff import StaffCreate, StaffResponse, StaffUpdate
 from app.core.dependency import get_current_user, require_manager
+from app.models.staff import Staff
 
 
 router = APIRouter(prefix="/staff", tags=["staff"])
@@ -38,7 +39,7 @@ router = APIRouter(prefix="/staff", tags=["staff"])
         "but one gym cannot have two staff members with the same email."
     ), status_code=201,
 )
-def create_staff(data: StaffCreate, _=Depends(require_manager), db: Session = Depends(get_db)):
+def create_staff(data: StaffCreate, current_user: Staff = Depends(require_manager), db: Session = Depends(get_db)):
     """Register a new staff member.
 
     Args:
@@ -51,10 +52,9 @@ def create_staff(data: StaffCreate, _=Depends(require_manager), db: Session = De
     Raises:
         HTTPException 400: If a staff member with that email already exists in the gym.
     """
-    try:
-        return staff_service.register_staff(db, data)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    if data.gym_id != current_user.gym_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own gym")
+    return staff_service.register_staff(db, data)
 
 
 @router.get(
@@ -97,10 +97,7 @@ def get_staff(staff_id: int, _=Depends(get_current_user), db: Session = Depends(
     Raises:
         HTTPException 400: If no staff member with that id exists.
     """
-    try:
-        return staff_service.get_staff(db, staff_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return staff_service.get_staff(db, staff_id)
 
 
 @router.patch(
@@ -126,10 +123,7 @@ def update_staff(staff_id: int, data: StaffUpdate, _=Depends(require_manager), d
     Raises:
         HTTPException 400: If no staff member with that id exists.
     """
-    try:
-        return staff_service.update_staff(db, staff_id, data)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return staff_service.update_staff(db, staff_id, data)
 
 
 @router.delete(
@@ -151,7 +145,4 @@ def delete_staff(staff_id: int, _=Depends(require_manager), db: Session = Depend
     Raises:
         HTTPException 400: If no staff member with that id exists.
     """
-    try:
-        return staff_service.delete_staff(db, staff_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return staff_service.delete_staff(db, staff_id)

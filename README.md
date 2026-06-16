@@ -70,9 +70,11 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 | Migrations | Alembic |
 | Validation | Pydantic v2 |
 | Auth | JWT + bcrypt (RBAC) |
-| Cache | Redis |
+| Cache | Redis (fail-open, with a circuit breaker) |
+| Rate limiting | slowapi (per-IP limit on login) |
+| Serverless | AWS Lambda + API Gateway via Mangum |
 | Containerization | Docker + docker-compose |
-| Testing | Pytest (unit + integration, 52 tests) |
+| Testing | Pytest (unit + integration, 54 tests) |
 | CI/CD | GitHub Actions |
 | Cloud | AWS (ECS Fargate, RDS, ECR, Secrets Manager) |
 
@@ -91,7 +93,9 @@ Client
                           + Redis (caching layer)
 ```
 
-Each layer has one responsibility. No layer skips another. Services raise `ValueError`, routers translate them into proper HTTP status codes.
+Each layer has one responsibility. No layer skips another. Services raise typed domain
+exceptions (`NotFoundError`, `DuplicateError`, `BusinessRuleError`), and global exception
+handlers map them to HTTP status codes (404 / 409 / 400) in one place, so routers stay thin.
 
 ### Domain Model
 
@@ -140,7 +144,12 @@ app/
 - **Background email notifications:** welcome email on member registration, session notification on attendance
 - **Paginated list endpoints:** every list route supports `skip` / `limit`
 - **Health check endpoint:** `GET /health` returns `200 {"status": "ok"}` for uptime monitoring
-- **52 automated tests:** unit per service, integration per API endpoint, all green in CI
+- **Rate limiting:** per-IP limit on `POST /auth/login` (slowapi) to blunt brute-force attempts
+- **Resilient caching:** Redis access fails open behind a circuit breaker, so a cache outage degrades performance instead of returning 500s
+- **Tenant isolation on writes:** create routes verify the resource's `gym_id` against the authenticated staff, so a manager cannot write into another gym
+- **Typed error handling:** domain exceptions mapped to consistent HTTP status codes by global handlers
+- **Runs serverless too:** the same app runs on AWS Lambda behind API Gateway via Mangum (see `lambda_handler.py`, `template.yaml`, `simulate_lambda.py`)
+- **54 automated tests:** unit per service, integration per API endpoint, all green in CI
 - **Seed migration:** 9 body parts seeded via Alembic on first deploy
 
 ### API Endpoints
@@ -232,7 +241,7 @@ Deployed using:
 - **Secrets Manager:** secure environment variables
 - **GitHub Actions:** CI/CD pipeline (test → deploy on push to `main`)
 
-Pipeline: push to `main` → 52 tests run → if green → Docker image built and pushed to ECR → ECS service redeployed automatically.
+Pipeline: push to `main` → 54 tests run → if green → Docker image built and pushed to ECR → ECS service redeployed automatically.
 
 ---
 
@@ -246,7 +255,7 @@ Pipeline: push to `main` → 52 tests run → if green → Docker image built an
 - [x] Phase 6: JWT authentication + RBAC
 - [x] Phase 7: Background tasks + email notifications
 - [x] Phase 8: Redis caching + performance
-- [x] Phase 9: Testing (52 tests, unit + integration)
+- [x] Phase 9: Testing (54 tests, unit + integration)
 - [x] Phase 10: Docker + AWS deployment + CI/CD
 - [ ] Phase 11: Load balancer + custom domain + HTTPS
 - [ ] Phase 12: React frontend
@@ -276,7 +285,7 @@ docker-compose up --build
 # Make sure Redis is running first (docker-compose handles this)
 docker-compose up cache -d
 
-# Run all 52 tests
+# Run all 54 tests
 pytest tests/ -v
 ```
 

@@ -33,6 +33,11 @@ def get_db():
 # Every endpoint that uses Depends(get_db) will now get the SQLite session
 app.dependency_overrides[real_get_db] = get_db
 
+# Disable rate limiting during tests: many tests log in, which would otherwise trip the
+# per-IP login limit. test_rate_limit.py re-enables it explicitly to prove the 429.
+from app.core.rate_limit import limiter as _limiter
+_limiter.enabled = False
+
 
 @pytest.fixture
 def db():

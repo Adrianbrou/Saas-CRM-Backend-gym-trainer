@@ -44,7 +44,7 @@ def test_duplicate_workout(auth_client):
     body_part_id = _seed_body_part()
     auth_client.post("/workouts/", json={"name": "Bench Press", "body_part_id": body_part_id})
     response = auth_client.post("/workouts/", json={"name": "Bench Press", "body_part_id": body_part_id})
-    assert response.status_code == 400
+    assert response.status_code == 409
 
 
 def test_update_workout(auth_client):

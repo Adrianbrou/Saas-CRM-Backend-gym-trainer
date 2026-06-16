@@ -11,7 +11,7 @@ from app.repository import workout_repository
 from app.schemas.workout import WorkoutCreate, WorkoutUpdate, WorkoutResponse
 from sqlalchemy.orm import Session
 from app.core import cache
-import json
+from app.core.exceptions import NotFoundError, DuplicateError
 
 
 def create_workout(db: Session, data: WorkoutCreate) -> Workout:
@@ -30,16 +30,17 @@ def create_workout(db: Session, data: WorkoutCreate) -> Workout:
     Returns:
         The newly created Workout with database-generated id.
     """
-    # Check duplicate name — workouts are global, names must be unique
-    existing = db.query(Workout).filter(Workout.name == data.name).first()
+    # Check duplicate name via the repository - workouts are global, names must be unique.
+    # The query lives in the repository so the service never touches SQLAlchemy directly.
+    existing = workout_repository.get_by_name(db, data.name)
     if existing:
-        raise ValueError("Workout with this name already exists")
+        raise DuplicateError("Workout with this name already exists")
 
     workout = Workout(**data.model_dump())
     return workout_repository.create(db, workout)
 
 
-def get_workout(db: Session, workout_id: int) -> Workout:
+def get_workout(db: Session, workout_id: int) -> WorkoutResponse:
     """Retrieve a workout by id after verifying it exists.
 
     Args:
@@ -52,17 +53,17 @@ def get_workout(db: Session, workout_id: int) -> Workout:
     Returns:
         The matching Workout object.
     """
-    # check if cached
+    # Return a validated WorkoutResponse on both the cache-hit and cache-miss paths.
     cached = cache.redis_client.get(f"workout:{workout_id}")
     if cached and isinstance(cached, str):
-        return json.loads(cached)
+        return WorkoutResponse.model_validate_json(cached)
 
     existing = workout_repository.get_by_id(db, workout_id)
     if not existing:
-        raise ValueError("Workout not found")
-    cache.redis_client.set(f"workout:{workout_id}", json.dumps(
-        WorkoutResponse.model_validate(existing).model_dump(mode="json")), ex=300)
-    return existing
+        raise NotFoundError("Workout not found")
+    response = WorkoutResponse.model_validate(existing)
+    cache.redis_client.set(f"workout:{workout_id}", response.model_dump_json(), ex=300)
+    return response
 
 
 def get_all(db: Session, skip: int = 0, limit: int = 20) -> list[Workout]:
@@ -95,7 +96,7 @@ def update_workout(db: Session, workout_id: int, data: WorkoutUpdate) -> Workout
     """
     existing = workout_repository.get_by_id(db, workout_id)
     if not existing:
-        raise ValueError("Workout not found")
+        raise NotFoundError("Workout not found")
 
     # Only update fields the client actually sent
     updates = data.model_dump(exclude_unset=True)
@@ -119,7 +120,7 @@ def delete_workout(db: Session, workout_id: int) -> bool:
     """
     existing = workout_repository.get_by_id(db, workout_id)
     if not existing:
-        raise ValueError("Workout not found")
+        raise NotFoundError("Workout not found")
     workout_repository.delete(db, workout_id)
     cache.redis_client.delete(f"workout:{workout_id}")
     return True

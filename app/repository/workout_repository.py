@@ -40,6 +40,22 @@ def get_by_id(db: Session, workout_id: int) -> Workout | None:
     return db.query(Workout).filter(Workout.id == workout_id).first()
 
 
+def get_by_name(db: Session, name: str) -> Workout | None:
+    """Fetch a single Workout by its unique name.
+
+    Used by the service layer for the duplicate-name check, so that business logic
+    never has to issue a raw query itself.
+
+    Args:
+        db: SQLAlchemy session injected by the caller.
+        name: The workout name to look up.
+
+    Returns:
+        The matching Workout, or None if no workout has that name.
+    """
+    return db.query(Workout).filter(Workout.name == name).first()
+
+
 def get_by_body_part(db: Session, body_part_id: int) -> List[Workout]:
     """Fetch all Workouts belonging to a specific body part.
 

@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Gym CRM FastAPI on AWS Lambda + API Gateway (HTTP API), via the Mangum ASGI adapter.
+  This is the serverless deployment of the same app that also runs on ECS Fargate.
+  Run locally with:  sam local start-api   (needs Docker + the AWS SAM CLI)
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 30          # API Gateway caps at 29s; keep the function just under/at it
+    MemorySize: 512      # more memory also means more CPU, which shortens cold starts
+
+Resources:
+  GymCrmApi:
+    Type: AWS::Serverless::HttpApi   # HTTP API is cheaper and lower-latency than REST API
+
+  GymCrmFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: lambda_handler.handler   # module.attribute that Lambda invokes
+      Environment:
+        Variables:
+          # In production these resolve from Secrets Manager, never hard-coded.
+          # Example (uncomment when a real secret + ARN exist):
+          # SECRET_KEY:   "{{resolve:secretsmanager:crm-backend/prod:SecretString:SECRET_KEY}}"
+          # DATABASE_URL: "{{resolve:secretsmanager:crm-backend/prod:SecretString:DATABASE_URL}}"
+          ALGORITHM: HS256
+          REDIS_HOST: ""    # point at ElastiCache; empty/unreachable is safe (cache fails open)
+      Events:
+        # One catch-all proxy so API Gateway forwards every path/method to FastAPI,
+        # which does its own routing. This is the standard "FastAPI on Lambda" pattern.
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GymCrmApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GymCrmApi
+            Path: /{proxy+}
+            Method: ANY
+
+      # --- Notes for a real deployment (kept as comments, not active config) ---
+      # VpcConfig:                       # required so the function can reach RDS in private subnets
+      #   SecurityGroupIds: [sg-xxxx]
+      #   SubnetIds: [subnet-xxxx, subnet-yyyy]
+      # Policies:                        # least-privilege: read only the one secret it needs
+      #   - AWSSecretsManagerGetSecretValuePolicy:
+      #       SecretArn: arn:aws:secretsmanager:us-east-1:000000000000:secret:crm-backend/prod-*
+      # ProvisionedConcurrencyConfig:    # pin warm instances to kill cold-start latency on hot paths
+      #   ProvisionedConcurrentExecutions: 1
+
+Outputs:
+  ApiBaseUrl:
+    Description: Base URL of the HTTP API
+    Value: !Sub "https://${GymCrmApi}.execute-api.${AWS::Region}.amazonaws.com"

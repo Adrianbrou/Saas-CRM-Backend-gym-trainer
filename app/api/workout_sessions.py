@@ -31,6 +31,7 @@ from app.schemas.workout_session import (
     AttendanceResponse,
 )
 from app.core.dependency import get_current_user, require_manager
+from app.models.staff import Staff
 
 
 router = APIRouter(prefix="/workout-sessions", tags=["workout-sessions"])
@@ -46,7 +47,7 @@ router = APIRouter(prefix="/workout-sessions", tags=["workout-sessions"])
         "A trainer from another gym cannot lead a session."
     ), status_code=201,
 )
-def create_session(data: WorkoutSessionCreate, _=Depends(require_manager), db: Session = Depends(get_db)):
+def create_session(data: WorkoutSessionCreate, current_user: Staff = Depends(require_manager), db: Session = Depends(get_db)):
     """Create a new workout session.
 
     Args:
@@ -59,10 +60,9 @@ def create_session(data: WorkoutSessionCreate, _=Depends(require_manager), db: S
     Raises:
         HTTPException 400: If the trainer does not exist or does not belong to this gym.
     """
-    try:
-        return workout_session_service.create_session(db, data)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    if data.gym_id != current_user.gym_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own gym")
+    return workout_session_service.create_session(db, data)
 
 
 @router.get(
@@ -112,20 +112,14 @@ def add_member(background_tasks: BackgroundTasks, session_id: int, data: Attenda
     if data.workout_session_id != session_id:
         raise HTTPException(
             status_code=400, detail="session_id in URL does not match body")
-    try:
-        attendance = workout_session_service.add_member_to_session(db, data)
-        member = member_repository.get_by_id(db, data.member_id)
-        session = workout_session_repository.get_by_id(
-            db, data.workout_session_id)
-        trainer = staff_repository.get_by_id(
-            db, session.staff_id)  # type: ignore
-        gym = gym_repository.get_by_id(db, session.gym_id)  # type: ignore
-        background_tasks.add_task(send_session_notification, member.email, trainer.name,  # type: ignore
-                                  member.name, gym.name, session.scheduled_at)  # type: ignore
-        return attendance
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    attendance = workout_session_service.add_member_to_session(db, data)
+    member = member_repository.get_by_id(db, data.member_id)
+    session = workout_session_repository.get_by_id(db, data.workout_session_id)
+    trainer = staff_repository.get_by_id(db, session.staff_id)  # type: ignore
+    gym = gym_repository.get_by_id(db, session.gym_id)  # type: ignore
+    background_tasks.add_task(send_session_notification, member.email, trainer.name,  # type: ignore
+                              member.name, gym.name, session.scheduled_at)  # type: ignore
+    return attendance
 
 
 @router.delete(
@@ -151,7 +145,4 @@ def remove_member(session_id: int, member_id: int, _=Depends(require_manager), d
     Raises:
         HTTPException 400: If the session does not exist.
     """
-    try:
-        return workout_session_service.remove_member_from_session(db, session_id, member_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return workout_session_service.remove_member_from_session(db, session_id, member_id)

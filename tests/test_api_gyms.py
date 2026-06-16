@@ -22,7 +22,7 @@ def test_api_duplicate_gym(client):
     client.post("/gyms/", json={"name": "Test Gym", "location": "Test City"})
     response = client.post(
         "/gyms/", json={"name": "Test Gym", "location": "Test City"})
-    assert response.status_code == 400
+    assert response.status_code == 409
 
 
 def test_api_update_gym(auth_client):

@@ -23,12 +23,13 @@ Error handling:
 """
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import cast
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database.session import get_db
 from app.repository import staff_repository
 from app.core.security import verify_password, create_access_token
+from app.core.rate_limit import limiter
 import logging
 
 
@@ -56,7 +57,8 @@ class TokenResponse(BaseModel):
         "Returns a signed JWT access token valid for 30 minutes."
     ),
 )
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Authenticate a staff member and return a JWT access token.
 
     Args:
